@@ -14,6 +14,10 @@ import (
 	"unicode"
 )
 
+var usage = string(`usage: ./gsc <.gos files>
+output: .go files that comprise a Go package.
+`)
+
 type Table []*Row
 
 func (t Table) For(f func(r *Row)) {
@@ -57,6 +61,11 @@ func Node2Loc(n ast.Node, fset *token.FileSet) Location {
 }
 
 func main() {
+
+	if len(os.Args) == 1 || os.Args[1] == "-h" || os.Args[1] == "--help" {
+		fmt.Println(usage)
+		os.Exit(0)
+	}
 	filepaths := os.Args[1:]
 	table := Table([]*Row{})
 	for _, filepath := range filepaths {
