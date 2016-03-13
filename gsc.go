@@ -14,6 +14,8 @@ import (
 	"unicode"
 )
 
+const FilePerm os.FileMode = 0644
+
 var usage = string(`usage: ./gsc <.gos files>
 output: .go files that comprise a Go package.
 `)
@@ -132,7 +134,7 @@ func main() {
 
 	table.For(func(r *Row) {
 		r.AsyncReplacedFilepath = r.Filepath + ".async_replaced"
-		err := ioutil.WriteFile(r.AsyncReplacedFilepath, []byte(r.AsyncReplaced), os.ModePerm)
+		err := ioutil.WriteFile(r.AsyncReplacedFilepath, []byte(r.AsyncReplaced), FilePerm)
 		if err != nil {
 			panic(err)
 		}
@@ -264,7 +266,7 @@ func main() {
 		err := ioutil.WriteFile(
 			strings.TrimSuffix(r.Filepath, "gos")+"go",
 			[]byte(r.FinalContent),
-			0777,
+			FilePerm,
 		)
 		if err != nil {
 			panic(err)
