@@ -1,0 +1,12 @@
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+)
+
+func main() {
+	bs, err := async(ioutil.ReadFile("/path/to/large/file"))
+	f := async(fib(42))
+	fmt.Println(bs, err, f)
+}

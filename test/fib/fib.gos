@@ -1,0 +1,21 @@
+package main
+
+import (
+	"fmt"
+)
+
+func fib(n int) int {
+	if n < 2 {
+		return n
+	} else {
+		n_1 := async(fib(n - 1))
+		n_2 := async(fib(n - 2))
+		return n_1 + n_2
+	}
+}
+
+func main() {
+	x := async(fib(33))
+	y := async(fib(42))
+	fmt.Println(x, y)
+}
