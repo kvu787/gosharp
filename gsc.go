@@ -16,7 +16,9 @@ import (
 
 const FilePerm os.FileMode = 0644
 
-var usage = string(`usage: ./gsc <.gos files>
+var usage = string(`usage:
+	./gsc <Go# package path>
+	./gsc <Go# files>
 output: .go files that comprise a Go package.
 `)
 
@@ -63,15 +65,27 @@ func Node2Loc(n ast.Node, fset *token.FileSet) Location {
 }
 
 func main() {
-
 	if len(os.Args) == 1 || os.Args[1] == "-h" || os.Args[1] == "--help" {
 		fmt.Println(usage)
 		os.Exit(0)
 	}
-	filepaths := os.Args[1:]
 	table := Table([]*Row{})
-	for _, filepath := range filepaths {
-		table = append(table, &Row{Filepath: filepath})
+	if len(os.Args) == 2 && !strings.HasSuffix(os.Args[1], ".gos") { // assume dirpath
+		// read directory
+		// enumerate absolute filepaths
+		dirpath := os.Args[1]
+		fileInfos, err := ioutil.ReadDir(dirpath)
+		if err != nil {
+			panic(err)
+		}
+		for _, fi := range fileInfos {
+			table = append(table, &Row{Filepath: fi.Name()})
+		}
+	} else { // assume list of *.gos files
+		filepaths := os.Args[1:]
+		for _, filepath := range filepaths {
+			table = append(table, &Row{Filepath: filepath})
+		}
 	}
 
 	table.For(func(r *Row) {
