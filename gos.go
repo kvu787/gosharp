@@ -9,85 +9,36 @@ import (
 	"go/types"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"unicode"
 )
 
-const FilePerm os.FileMode = 0644
-
-var usage = string(`usage:
-	./gsc <Go# package path>
-	./gsc <Go# files>
-output: .go files that comprise a Go package.
-`)
-
-type Table []*Row
-
-func (t Table) For(f func(r *Row)) {
-	for _, r := range t {
-		f(r)
-	}
-}
-
-type Ignored int
-
-type Row struct {
-	Filepath              string
-	Content               string
-	Fset                  *token.FileSet // shared
-	Ast                   *ast.File
-	AsyncLocations        map[Location]Ignored
-	AsyncELocations       map[Location]Ignored
-	AsyncReplacedFilepath string
-	AsyncReplacements     []Replacement
-	AsyncReplaced         string
-	Fset2                 *token.FileSet // shared
-	AsyncReplacedAst      *ast.File
-	Info                  *types.Info // typechecking info
-	AsyncEReplacements    []Replacement
-	IdsDontRewrite        map[*ast.Ident]Ignored      // ids in ID := async(E)
-	ShortDecls            map[*ast.AssignStmt]Ignored // ast nodes of (ID := async(E))
-	IdReplacements        []Replacement
-	FinalContent          string
-}
-
-type Location struct {
-	Start token.Position
-	End   token.Position
-}
-
-func Node2Loc(n ast.Node, fset *token.FileSet) Location {
-	return Location{
-		fset.Position(n.Pos()),
-		fset.Position(n.End()),
-	}
-}
-
-func main() {
-	if len(os.Args) == 1 || os.Args[1] == "-h" || os.Args[1] == "--help" {
-		fmt.Println(usage)
-		os.Exit(0)
-	}
+// dirpath must be absolute
+func Rewrite(dirpath string) {
 	table := Table([]*Row{})
-	if len(os.Args) == 2 && !strings.HasSuffix(os.Args[1], ".gos") { // assume dirpath
-		// read directory
-		// enumerate absolute filepaths
-		dirpath := os.Args[1]
+
+	// add one row for each file
+	{
 		fileInfos, err := ioutil.ReadDir(dirpath)
 		if err != nil {
 			panic(err)
 		}
+		filepaths := []string{}
 		for _, fi := range fileInfos {
-			table = append(table, &Row{Filepath: fi.Name()})
+			abspath := filepath.Join(dirpath, fi.Name())
+			if strings.HasSuffix(abspath, ".gos") {
+				filepaths = append(filepaths, abspath)
+			}
 		}
-	} else { // assume list of *.gos files
-		filepaths := os.Args[1:]
-		for _, filepath := range filepaths {
-			table = append(table, &Row{Filepath: filepath})
+		for _, fp := range filepaths {
+			table = append(table, &Row{Filepath: fp})
 		}
 	}
 
+	// read files
 	table.For(func(r *Row) {
 		bs, err := ioutil.ReadFile(r.Filepath)
 		if err != nil {
@@ -97,12 +48,15 @@ func main() {
 	})
 
 	{
+		// create file set from files
 		fset := token.NewFileSet()
 		table.For(func(r *Row) {
 			r.Fset = fset
 			fset.AddFile(r.Filepath, -1, len(r.Content))
 		})
 	}
+
+	// parse files
 	table.For(func(r *Row) {
 		ast, err := parser.ParseFile(r.Fset, r.Filepath, nil, 0)
 		if err != nil {
@@ -111,13 +65,13 @@ func main() {
 		r.Ast = ast
 	})
 
+	// find async and async(E) positions
 	table.For(func(r *Row) {
-		// find async and async(E) positions
 		r.AsyncLocations = map[Location]Ignored{}
 		r.AsyncELocations = map[Location]Ignored{}
+
+		// get all objects O such that there exists an ID := async(E) and ID points to O
 		ast.Inspect(r.Ast, func(n ast.Node) bool {
-			// get all objects O that there exists an ID := async(E) and ID points
-			// to O
 			if n != nil {
 				if shortDecl, ok := n.(*ast.AssignStmt); ok && shortDecl != nil {
 					if shortDecl.Tok == token.DEFINE {
@@ -138,12 +92,14 @@ func main() {
 			return true
 		})
 	})
+
+	// replace "async" function expressions with "     "
 	table.For(func(r *Row) {
 		r.AsyncReplacements = []Replacement{}
 		for loc := range r.AsyncLocations {
 			r.AsyncReplacements = append(r.AsyncReplacements, Replacement{loc, "     "})
 		}
-		r.AsyncReplaced = Rewrite(r.Content, r.AsyncReplacements)
+		r.AsyncReplaced = Replace(r.Content, r.AsyncReplacements)
 	})
 
 	table.For(func(r *Row) {
@@ -176,8 +132,6 @@ func main() {
 		// we're interested in, and Check populates them.
 		info := &types.Info{
 			Types: make(map[ast.Expr]types.TypeAndValue),
-			Defs:  make(map[*ast.Ident]types.Object),
-			Uses:  make(map[*ast.Ident]types.Object),
 		}
 		// collect async replaced asts
 		asts := []*ast.File{}
@@ -185,8 +139,15 @@ func main() {
 			asts = append(asts, r.AsyncReplacedAst)
 		})
 		fset := table[0].Fset2
-		conf := types.Config{Importer: importer.Default()}
-		_, err := conf.Check("I think this is doesn't matter?", fset, asts, info)
+		conf := types.Config{Importer: importer.For("gc", nil)}
+		pkg, err := conf.Check("I think this is doesn't matter?", fset, asts, info)
+		for _, imp := range pkg.Imports() {
+			fullImportPath, isUserPkg := Expand(imp.Path())
+			if isUserPkg {
+				Rewrite(fullImportPath)
+			}
+		}
+
 		if err != nil {
 			panic(err)
 		}
@@ -221,7 +182,7 @@ func main() {
 	})
 
 	table.For(func(r *Row) {
-		r.IdsDontRewrite = map[*ast.Ident]Ignored{}
+		r.IdsDontReplace = map[*ast.Ident]Ignored{}
 		r.ShortDecls = map[*ast.AssignStmt]Ignored{}
 		ast.Inspect(r.Ast, func(n ast.Node) bool {
 			if n != nil {
@@ -235,7 +196,7 @@ func main() {
 										r.ShortDecls[shortDecl] = 0
 										for _, lhs := range shortDecl.Lhs {
 											id := lhs.(*ast.Ident)
-											r.IdsDontRewrite[id] = 0
+											r.IdsDontReplace[id] = 0
 										}
 									}
 								}
@@ -251,7 +212,7 @@ func main() {
 		ast.Inspect(r.Ast, func(n ast.Node) bool {
 			if n != nil {
 				if id, ok := n.(*ast.Ident); ok && id != nil { // get all IDs
-					if _, ok := r.IdsDontRewrite[id]; !ok { // that aren't ID := async(E)
+					if _, ok := r.IdsDontReplace[id]; !ok { // that aren't ID := async(E)
 						if id.Obj != nil && id.Obj.Decl != nil {
 							if assignStmt, ok := id.Obj.Decl.(*ast.AssignStmt); ok {
 								// that have point to obj declared in decls
@@ -272,21 +233,68 @@ func main() {
 		})
 	})
 
+	// apply all replacements and write .go files
 	table.For(func(r *Row) {
-		// apply all replacements
-		r.FinalContent = Rewrite(r.Content, append(r.AsyncReplacements,
+		r.FinalContent = Replace(r.Content, append(r.AsyncReplacements,
 			append(r.AsyncEReplacements, r.IdReplacements...)...))
-		// write final files
-		err := ioutil.WriteFile(
-			strings.TrimSuffix(r.Filepath, "gos")+"go",
-			[]byte(r.FinalContent),
-			FilePerm,
-		)
+		newFilepath := strings.TrimSuffix(r.Filepath, "gos") + "go"
+		err := ioutil.WriteFile(newFilepath, []byte(r.FinalContent), FilePerm)
 		if err != nil {
 			panic(err)
 		}
 	})
 
+	// clean up temp files
+	table.For(func(r *Row) {
+		err := os.Remove(r.AsyncReplacedFilepath)
+		if err != nil {
+			panic(err)
+		}
+	})
+}
+
+const FilePerm os.FileMode = 0644
+
+type Table []*Row
+
+func (t Table) For(f func(r *Row)) {
+	for _, r := range t {
+		f(r)
+	}
+}
+
+type Ignored int
+
+type Row struct {
+	Filepath              string
+	Content               string
+	Fset                  *token.FileSet // shared
+	Ast                   *ast.File
+	AsyncLocations        map[Location]Ignored
+	AsyncELocations       map[Location]Ignored
+	AsyncReplacedFilepath string
+	AsyncReplacements     []Replacement
+	AsyncReplaced         string
+	Fset2                 *token.FileSet // shared
+	AsyncReplacedAst      *ast.File
+	Info                  *types.Info // typechecking info
+	AsyncEReplacements    []Replacement
+	IdsDontReplace        map[*ast.Ident]Ignored      // ids in ID := async(E)
+	ShortDecls            map[*ast.AssignStmt]Ignored // ast nodes of (ID := async(E))
+	IdReplacements        []Replacement
+	FinalContent          string
+}
+
+type Location struct {
+	Start token.Position
+	End   token.Position
+}
+
+func Node2Loc(n ast.Node, fset *token.FileSet) Location {
+	return Location{
+		fset.Position(n.Pos()),
+		fset.Position(n.End()),
+	}
 }
 
 func getTypes(tv types.TypeAndValue) []string {
@@ -307,8 +315,34 @@ type Replacement struct {
 	New string
 }
 
+// Expand converts a Go package import path to an absolute directory path.
+// Returns true if found in GOPATH, false if found in GOROOT.
+func Expand(path string) (string, bool) {
+	// try GOROOT
+	goroot := filepath.Join(runtime.GOROOT(), "src", path)
+	if IsDir(goroot) {
+		return goroot, false
+	}
+
+	// try GOPATH
+	gopath := filepath.Join(os.Getenv("GOPATH"), "src", path)
+	if IsDir(gopath) {
+		return gopath, true
+	}
+
+	panic("Expand: neither GOROOT nor GOPATH works")
+}
+
+func IsDir(path string) bool {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return fileInfo.IsDir()
+}
+
 // assumes replacements has no duplicates
-func Rewrite(original string, replacements []Replacement) string {
+func Replace(original string, replacements []Replacement) string {
 	// sort replacments by r.Location.Start
 	// scan through replacements and get non replacements
 	// interleave replacements and non replacements
