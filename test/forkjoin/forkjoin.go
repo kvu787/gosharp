@@ -3,9 +3,6 @@
 //
 // This demo runs a parallel fork-join sum algorithm and a sequential sum
 // algorithm. Observe the fork-join speedup.
-//
-// usage: ./forkjoin async   # for parallel
-//        ./forkjoin         # for sequential
 package main
 
 import (
@@ -46,9 +43,33 @@ func SumAsync(nums []int, start, end int) int {
 		return Sum(nums, start, end)
 	} else {
 		mid := (start + end) / 2
-		left := async(Sum(nums, start, mid))
-		right := async(Sum(nums, mid, end))
-		return left + right
+		left :=      (func() (func() int) {
+	var __result0 int
+
+	__ready := make(chan interface{})
+	go func() {
+		__result0 = Sum(nums, start, mid)
+		close(__ready)
+	}()
+	return func() int {
+			<-__ready
+			return __result0
+		}
+}())
+		right :=      (func() (func() int) {
+	var __result0 int
+
+	__ready := make(chan interface{})
+	go func() {
+		__result0 = Sum(nums, mid, end)
+		close(__ready)
+	}()
+	return func() int {
+			<-__ready
+			return __result0
+		}
+}())
+		return left() + right()
 	}
 }
 

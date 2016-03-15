@@ -4,6 +4,9 @@
 //
 // This demo reads several large files and performs long-running computations
 // in parallel. Observe how the sequential version takes much longer.
+//
+// usage: ./readfiles async   # for parallel
+//        ./readfiles         # for sequential
 package main
 
 import (

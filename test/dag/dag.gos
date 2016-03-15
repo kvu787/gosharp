@@ -7,6 +7,9 @@
 //
 // This demo runs a computation graph. Observe how the parallel version runs
 // several computations simultaneously.
+//
+// usage: ./dag async   # for parallel
+//        ./dag         # for sequential
 package main
 
 import (
