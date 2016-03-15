@@ -1,0 +1,23 @@
+package main
+
+import (
+	"fmt"
+)
+
+func Sum(nums []int, start, end int) int {
+	if start == end {
+		return 0
+	} else if start+1 == end {
+		return nums[start]
+	} else {
+		mid := (start + end) / 2
+		left := async(Sum(nums, start, mid))
+		right := async(Sum(nums, mid, end))
+		return left + right
+	}
+}
+
+func main() {
+	nums := []int{-1, 9, 3, 6}
+	fmt.Println(Sum(nums, 0, len(nums)))
+}
