@@ -181,10 +181,37 @@ func Rewrite(dirpath string) {
 		}
 	})
 
+	// YOLO
+	table.For(func(r *Row) {
+		r.WE_Filepath = r.Filepath + ".wrap_expression"
+		r.WE_Content = Replace(r.Content, r.AsyncEReplacements)
+		err := ioutil.WriteFile(r.WE_Filepath,
+			[]byte(r.WE_Content), FilePerm)
+		if err != nil {
+			panic(err)
+		}
+
+	})
+	{
+		fset := token.NewFileSet()
+		table.For(func(r *Row) {
+			fset.AddFile(r.WE_Filepath, -1, len(r.WE_Content))
+			r.WE_Fset = fset
+		})
+	}
+	table.For(func(r *Row) {
+		ast, err := parser.ParseFile(r.WE_Fset, r.WE_Filepath, nil, 0)
+		if err != nil {
+			panic(err)
+		}
+		r.WE_Ast = ast
+	})
+
 	table.For(func(r *Row) {
 		r.IdsDontReplace = map[*ast.Ident]Ignored{}
 		r.ShortDecls = map[*ast.AssignStmt]Ignored{}
-		ast.Inspect(r.Ast, func(n ast.Node) bool {
+		r.AsyncLocations2 = map[Location]Ignored{}
+		ast.Inspect(r.WE_Ast, func(n ast.Node) bool {
 			if n != nil {
 				if shortDecl, ok := n.(*ast.AssignStmt); ok && shortDecl != nil {
 					if shortDecl.Tok == token.DEFINE {
@@ -192,6 +219,7 @@ func Rewrite(dirpath string) {
 							if call, ok := shortDecl.Rhs[0].(*ast.CallExpr); ok && call != nil {
 								if funcId, ok := call.Fun.(*ast.Ident); ok && funcId != nil {
 									if funcId.Name == "async" {
+										r.AsyncLocations2[Node2Loc(funcId, r.WE_Fset)] = 0
 										// iterate through LHS of "id0, id1, ... := async(E)"
 										r.ShortDecls[shortDecl] = 0
 										for _, lhs := range shortDecl.Lhs {
@@ -209,7 +237,7 @@ func Rewrite(dirpath string) {
 		})
 
 		r.IdReplacements = []Replacement{}
-		ast.Inspect(r.Ast, func(n ast.Node) bool {
+		ast.Inspect(r.WE_Ast, func(n ast.Node) bool {
 			if n != nil {
 				if id, ok := n.(*ast.Ident); ok && id != nil { // get all IDs
 					if _, ok := r.IdsDontReplace[id]; !ok { // that aren't ID := async(E)
@@ -218,8 +246,8 @@ func Rewrite(dirpath string) {
 								// that have point to obj declared in decls
 								if _, ok := r.ShortDecls[assignStmt]; ok {
 									loc := Location{
-										r.Fset.Position(id.Pos()),
-										r.Fset.Position(id.End()),
+										r.WE_Fset.Position(id.Pos()),
+										r.WE_Fset.Position(id.End()),
 									}
 									r.IdReplacements = append(r.IdReplacements,
 										Replacement{loc, id.Name + "()"})
@@ -233,10 +261,17 @@ func Rewrite(dirpath string) {
 		})
 	})
 
-	// apply all replacements and write .go files
+	// replace "async" function expressions with "     "
 	table.For(func(r *Row) {
-		r.FinalContent = Replace(r.Content, append(r.AsyncReplacements,
-			append(r.AsyncEReplacements, r.IdReplacements...)...))
+		r.AsyncReplacements2 = []Replacement{}
+		for loc := range r.AsyncLocations2 {
+			r.AsyncReplacements2 = append(r.AsyncReplacements2, Replacement{loc, "     "})
+		}
+	})
+
+	// apply id rewrites and write .go files
+	table.For(func(r *Row) {
+		r.FinalContent = Replace(r.WE_Content, append(r.IdReplacements, r.AsyncReplacements2...))
 		newFilepath := strings.TrimSuffix(r.Filepath, "gos") + "go"
 		err := ioutil.WriteFile(newFilepath, []byte(r.FinalContent), FilePerm)
 		if err != nil {
@@ -250,40 +285,16 @@ func Rewrite(dirpath string) {
 		if err != nil {
 			panic(err)
 		}
+		err = os.Remove(r.WE_Filepath)
+		if err != nil {
+			panic(err)
+		}
 	})
 }
 
 const FilePerm os.FileMode = 0644
 
-type Table []*Row
-
-func (t Table) For(f func(r *Row)) {
-	for _, r := range t {
-		f(r)
-	}
-}
-
 type Ignored int
-
-type Row struct {
-	Filepath              string
-	Content               string
-	Fset                  *token.FileSet // shared
-	Ast                   *ast.File
-	AsyncLocations        map[Location]Ignored
-	AsyncELocations       map[Location]Ignored
-	AsyncReplacedFilepath string
-	AsyncReplacements     []Replacement
-	AsyncReplaced         string
-	Fset2                 *token.FileSet // shared
-	AsyncReplacedAst      *ast.File
-	Info                  *types.Info // typechecking info
-	AsyncEReplacements    []Replacement
-	IdsDontReplace        map[*ast.Ident]Ignored      // ids in ID := async(E)
-	ShortDecls            map[*ast.AssignStmt]Ignored // ast nodes of (ID := async(E))
-	IdReplacements        []Replacement
-	FinalContent          string
-}
 
 type Location struct {
 	Start token.Position
