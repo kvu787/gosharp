@@ -29,6 +29,8 @@ type Row struct {
 	WE_Fset            *token.FileSet
 	WE_Ast             *ast.File
 
+	RI_Filepath        string
+	GO_Filepath        string
 	AsyncLocations2    map[Location]Ignored
 	AsyncReplacements2 []Replacement
 	IdsDontReplace     map[*ast.Ident]Ignored      // ids in ID := async(E)
