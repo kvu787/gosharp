@@ -1,0 +1,53 @@
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"time"
+)
+
+// We want to compute a result modeled as a directed acyclic graph of dependent
+// (DAG) computations. This type of computations appers in many different
+// contexts, from training neural networks to compiling programs.
+
+/*
+One cool thing about async is that it accepts arbitrary expressions,
+not just function calls
+*/
+func main() {
+	// fire up a graph of computations
+	a := async(ComputeSomething("a"))
+	b := async(ComputeSomething("b"))
+	c := async(a + b)
+	d := async(a * c)
+	e := async(ComputeSomething("e"))
+	f := async(ComputeSomething("f"))
+	g := async(ComputeSomething("g", e*f-d))
+	fmt.Println(g)
+}
+
+// ComputeSomething waits for a random duration of time up to n seconds and
+// returns a random number.
+func ComputeSomething(name string, inputs ...int) int {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	result := 1
+	for _, input := range inputs {
+		result *= input
+	}
+	ticker := time.NewTicker(250 * time.Millisecond)
+	for i := 0; i < 10; i++ {
+		<-ticker.C
+		fmt.Println(name, "computing", smul(".", i))
+	}
+	fmt.Println(name, "done")
+	return result * rng.Int()
+}
+
+// smul returns a string with n concatenations of s.
+func smul(s string, n int) string {
+	retval := ""
+	for i := 0; i < n; i++ {
+		retval += s
+	}
+	return retval
+}
