@@ -1,0 +1,64 @@
+// Async is ideal for running multiple IO and CPU intensive operations in
+// parallel.
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"runtime"
+	"time"
+)
+
+func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	fmt.Println("Using", runtime.NumCPU(), "cpus")
+	fmt.Println()
+
+	if len(os.Args) > 1 && os.Args[1] == "async" {
+		start := time.Now()
+
+		fmt.Println("Reading files asynchronously...")
+		bs1, err1 := async(ioutil.ReadFile("./bigfile1"))
+		bs2, err2 := async(ioutil.ReadFile("./bigfile2"))
+		bs3, err3 := async(ioutil.ReadFile("./bigfile3"))
+
+		fmt.Println("Doing computations asynchronously...")
+		result1 := async(DoComputation())
+		result2 := async(DoComputation())
+
+		fmt.Println("computation 1 result: ", result1)
+		fmt.Println("computation 2 result: ", result2)
+		fmt.Printf("bigfile1 size: %v, err: %v\n", len(bs1), err1)
+		fmt.Printf("bigfile2 size: %v, err: %v\n", len(bs2), err2)
+		fmt.Printf("bigfile3 size: %v, err: %v\n", len(bs3), err3)
+		fmt.Println()
+
+		fmt.Println("Took", time.Now().Sub(start))
+	} else {
+		start := time.Now()
+
+		fmt.Println("Reading files...")
+		bs1, err1 := (ioutil.ReadFile("./bigfile1"))
+		bs2, err2 := (ioutil.ReadFile("./bigfile2"))
+		bs3, err3 := (ioutil.ReadFile("./bigfile3"))
+
+		fmt.Println("Doing computations...")
+		result1 := (DoComputation())
+		result2 := (DoComputation())
+
+		fmt.Println("computation 1 result: ", result1)
+		fmt.Println("computation 2 result: ", result2)
+		fmt.Printf("bigfile1 size: %v, err: %v\n", len(bs1), err1)
+		fmt.Printf("bigfile2 size: %v, err: %v\n", len(bs2), err2)
+		fmt.Printf("bigfile3 size: %v, err: %v\n", len(bs3), err3)
+		fmt.Println()
+
+		fmt.Println("Took", time.Now().Sub(start))
+	}
+}
+
+func DoComputation() int64 {
+	time.Sleep(2 * time.Second)
+	return time.Now().UnixNano()
+}

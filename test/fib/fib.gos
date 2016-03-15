@@ -1,8 +1,17 @@
+// This rewrites and compiles!
 package main
 
 import (
 	"fmt"
 )
+
+func main() {
+	x := async(fib(4))
+	y := async(fib(5))
+	fmt.Println(x)
+	fmt.Println(y)
+}
+
 
 func fib(n int) int {
 	if n < 2 {
@@ -12,11 +21,4 @@ func fib(n int) int {
 		n_2 := async(fib(n - 2))
 		return n_1 + n_2
 	}
-}
-
-func main() {
-	x := async(fib(4))
-	y := async(fib(5))
-	fmt.Println(x)
-	fmt.Println(y)
 }
