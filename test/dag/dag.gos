@@ -14,7 +14,9 @@ import (
 // One cool thing about async is that it accepts arbitrary expressions
 // not just function calls.
 func main() {
-	// fire up a graph of computations
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	fmt.Println("Using", runtime.NumCPU(), "cpus")
+
 	if len(os.Args) > 1 && os.Args[1] == "async" {
 		a := async(Compute("a"))
 		b := async(Compute("b"))

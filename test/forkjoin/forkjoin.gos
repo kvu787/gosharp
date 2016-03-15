@@ -2,13 +2,16 @@ package main
 
 import (
 	"fmt"
+	"runtime"
+	"time"
 )
 
-func Sum(nums []int, start, end int) int {
-	if start == end {
-		return 0
-	} else if start+1 == end {
-		return nums[start]
+const SequentialCutoff int = 1000
+const Size int = 180000000
+
+func SumAsync(nums []int, start, end int) int {
+	if end-start < SequentialCutoff {
+		return Sum(nums, start, end)
 	} else {
 		mid := (start + end) / 2
 		left := async(Sum(nums, start, mid))
@@ -17,7 +20,30 @@ func Sum(nums []int, start, end int) int {
 	}
 }
 
+func Sum(nums []int, start, end int) int {
+	sum := 0
+	for _, num := range nums[start:end] {
+		sum += num
+	}
+	return sum
+}
+
 func main() {
-	nums := []int{-1, 9, 3, 6}
-	fmt.Println(Sum(nums, 0, len(nums)))
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	fmt.Println("Using", runtime.NumCPU(), "cpus")
+
+	nums := make([]int, Size)
+	for i := range nums {
+		nums[i] = i
+	}
+
+	fmt.Print("Running sequential sum... ")
+	start := time.Now()
+	Sum(nums, 0, len(nums))
+	fmt.Println("finished in", time.Now().Sub(start))
+
+	fmt.Print("Running forkjoin sum... ")
+	start = time.Now()
+	SumAsync(nums, 0, len(nums))
+	fmt.Println("finished in", time.Now().Sub(start))
 }
