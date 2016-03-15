@@ -15,7 +15,8 @@ func fib(n int) int {
 }
 
 func main() {
-	x := async(fib(33))
-	y := async(fib(42))
-	fmt.Println(x, y)
+	x := async(fib(4))
+	y := async(fib(5))
+	fmt.Println(x)
+	fmt.Println(y)
 }
