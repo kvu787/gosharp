@@ -21,7 +21,6 @@ If no directory path is specified, it is assumed to be the current directory.
 func main() {
 	args, verbose := Remove("-v", os.Args)
 	os.Args = args
-	fmt.Println(os.Args)
 	if len(os.Args) > 1 && (os.Args[1] == "-h" || os.Args[1] == "--help" || os.Args[1] == "help") {
 		fmt.Println(usage)
 		os.Exit(0)
