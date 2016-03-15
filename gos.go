@@ -17,7 +17,7 @@ import (
 )
 
 // dirpath must be absolute
-func Rewrite(dirpath string) {
+func Rewrite(dirpath string, verbose bool) {
 	table := Table([]*Row{})
 
 	// add one row for each file
@@ -103,7 +103,7 @@ func Rewrite(dirpath string) {
 	})
 
 	table.For(func(r *Row) {
-		r.AsyncReplacedFilepath = r.Filepath + ".async_replaced"
+		r.AsyncReplacedFilepath = r.Filepath + ".remove_async"
 		err := ioutil.WriteFile(r.AsyncReplacedFilepath, []byte(r.AsyncReplaced), FilePerm)
 		if err != nil {
 			panic(err)
@@ -140,13 +140,13 @@ func Rewrite(dirpath string) {
 		})
 		fset := table[0].Fset2
 		conf := types.Config{Importer: importer.For("gc", nil)}
-		pkg, err := conf.Check("I think this is doesn't matter?", fset, asts, info)
-		for _, imp := range pkg.Imports() {
-			fullImportPath, isUserPkg := Expand(imp.Path())
-			if isUserPkg {
-				Rewrite(fullImportPath)
-			}
-		}
+		_, err := conf.Check("I think this is doesn't matter?", fset, asts, info)
+		// for _, imp := range pkg.Imports() {
+		// 	fullImportPath, isUserPkg := Expand(imp.Path())
+		// 	if isUserPkg {
+		// 		Rewrite(fullImportPath)
+		// 	}
+		// }
 
 		if err != nil {
 			panic(err)
@@ -272,24 +272,35 @@ func Rewrite(dirpath string) {
 	// apply id rewrites and write .go files
 	table.For(func(r *Row) {
 		r.FinalContent = Replace(r.WE_Content, append(r.IdReplacements, r.AsyncReplacements2...))
-		newFilepath := strings.TrimSuffix(r.Filepath, "gos") + "go"
-		err := ioutil.WriteFile(newFilepath, []byte(r.FinalContent), FilePerm)
+		r.GO_Filepath = strings.TrimSuffix(r.Filepath, "gos") + "go"
+		err := ioutil.WriteFile(r.GO_Filepath, []byte(r.FinalContent), FilePerm)
+		if err != nil {
+			panic(err)
+		}
+		r.RI_Filepath = strings.TrimSuffix(r.Filepath, "gos") + "gos.rewrite_identifiers"
+		err = ioutil.WriteFile(r.RI_Filepath, []byte(r.FinalContent), FilePerm)
 		if err != nil {
 			panic(err)
 		}
 	})
 
-	// clean up temp files
-	table.For(func(r *Row) {
-		err := os.Remove(r.AsyncReplacedFilepath)
-		if err != nil {
-			panic(err)
-		}
-		err = os.Remove(r.WE_Filepath)
-		if err != nil {
-			panic(err)
-		}
-	})
+	if !verbose {
+		// clean up temp files
+		table.For(func(r *Row) {
+			err := os.Remove(r.AsyncReplacedFilepath)
+			if err != nil {
+				panic(err)
+			}
+			err = os.Remove(r.WE_Filepath)
+			if err != nil {
+				panic(err)
+			}
+			err = os.Remove(r.RI_Filepath)
+			if err != nil {
+				panic(err)
+			}
+		})
+	}
 }
 
 const FilePerm os.FileMode = 0644
