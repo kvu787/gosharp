@@ -12,6 +12,6 @@ go get github.com/kvu787/gosharp
 
 ```bash
 cd demo/fib/
-gos
+gosharp
 go build
 ```
