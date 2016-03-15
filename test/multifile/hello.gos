@@ -1,3 +1,6 @@
+// Go# rewrites multifile packages properly.
+//
+// This demo should print "hello world" to the console.
 package main
 
 import (

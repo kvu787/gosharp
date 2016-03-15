@@ -1,5 +1,9 @@
 // Async is ideal for running multiple IO and CPU intensive operations in
-// parallel.
+// parallel. Go channels and routines are not ideal because we want to retrieve
+// a result from a function call, not just run it in another thread.
+//
+// This demo reads several large files and performs long-running computations
+// in parallel. Observe how the sequential version takes much longer.
 package main
 
 import (

@@ -1,3 +1,8 @@
+// "Fork-join" parallelism, used in Java, can be expressed elegantly with
+// async expressions. No "extends java.lang.Thread" or "public void run()" here!
+//
+// This demo runs a parallel fork-join sum algorithm and a sequential sum
+// algorithm. Observe the fork-join speedup.
 package main
 
 import (

@@ -1,3 +1,12 @@
+// We want to compute a result modeled as a directed acyclic graph of dependent
+// (DAG) computations. This type of computations appers in many different
+// contexts, from training neural networks to compiling programs.
+//
+// One cool feature is that async takes arbitrary Go expressions
+// not just function calls.
+//
+// This demo runs a computation graph. Observe how the parallel version runs
+// several computations simultaneously.
 package main
 
 import (
@@ -7,17 +16,12 @@ import (
 	"time"
 )
 
-// We want to compute a result modeled as a directed acyclic graph of dependent
-// (DAG) computations. This type of computations appers in many different
-// contexts, from training neural networks to compiling programs.
-//
-// One cool thing about async is that it accepts arbitrary expressions
-// not just function calls.
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	fmt.Println("Using", runtime.NumCPU(), "cpus")
 
 	if len(os.Args) > 1 && os.Args[1] == "async" {
+		fmt.Println("Running computation DAG in parallel")
 		a := async(Compute("a"))
 		b := async(Compute("b"))
 		c := async(a + b)
@@ -29,6 +33,7 @@ func main() {
 		fmt.Println(g)
 		fmt.Println(h)
 	} else {
+		fmt.Println("Running computation DAG sequentially")
 		a := (Compute("a"))
 		b := (Compute("b"))
 		c := (a + b)
