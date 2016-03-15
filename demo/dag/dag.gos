@@ -25,6 +25,7 @@ func main() {
 	fmt.Println("Using", runtime.NumCPU(), "cpus")
 
 	if len(os.Args) > 1 && os.Args[1] == "async" {
+		start := time.Now()
 		fmt.Println("Running computation DAG in parallel")
 		a := async(Compute("a"))
 		b := async(Compute("b"))
@@ -36,8 +37,10 @@ func main() {
 		h := async(Compute("h", a, b, f))
 		fmt.Println(g)
 		fmt.Println(h)
+		fmt.Println("finished in", time.Now().Sub(start))
 	} else {
 		fmt.Println("Running computation DAG sequentially")
+		start := time.Now()
 		a := (Compute("a"))
 		b := (Compute("b"))
 		c := (a + b)
@@ -48,6 +51,7 @@ func main() {
 		h := (Compute("h", a, b, f))
 		fmt.Println(g)
 		fmt.Println(h)
+		fmt.Println("finished in", time.Now().Sub(start))
 	}
 }
 
