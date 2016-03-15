@@ -3,41 +3,55 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"time"
 )
 
 // We want to compute a result modeled as a directed acyclic graph of dependent
 // (DAG) computations. This type of computations appers in many different
 // contexts, from training neural networks to compiling programs.
-
-/*
-One cool thing about async is that it accepts arbitrary expressions,
-not just function calls
-*/
+//
+// One cool thing about async is that it accepts arbitrary expressions
+// not just function calls.
 func main() {
 	// fire up a graph of computations
-	a := async(ComputeSomething("a"))
-	b := async(ComputeSomething("b"))
-	c := async(a + b)
-	d := async(a * c)
-	e := async(ComputeSomething("e"))
-	f := async(ComputeSomething("f"))
-	g := async(ComputeSomething("g", e*f-d))
-	fmt.Println(g)
+	if len(os.Args) > 1 && os.Args[1] == "async" {
+		a := async(Compute("a"))
+		b := async(Compute("b"))
+		c := async(a + b)
+		d := async(a * c)
+		e := async(Compute("e"))
+		f := async(Compute("f"))
+		g := async(Compute("g", e*f-d))
+		h := async(Compute("h", a, b, f))
+		fmt.Println(g)
+		fmt.Println(h)
+	} else {
+		a := (Compute("a"))
+		b := (Compute("b"))
+		c := (a + b)
+		d := (a * c)
+		e := (Compute("e"))
+		f := (Compute("f"))
+		g := (Compute("g", e*f-d))
+		h := (Compute("h", a, b, f))
+		fmt.Println(g)
+		fmt.Println(h)
+	}
 }
 
-// ComputeSomething waits for a random duration of time up to n seconds and
+// Compute waits for a random duration of time up to n seconds and
 // returns a random number.
-func ComputeSomething(name string, inputs ...int) int {
+func Compute(name string, inputs ...int) int {
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	result := 1
 	for _, input := range inputs {
 		result *= input
 	}
-	ticker := time.NewTicker(250 * time.Millisecond)
-	for i := 0; i < 10; i++ {
+	ticker := time.NewTicker(time.Duration(30+rng.Intn(20)) * time.Millisecond)
+	for i := 0; i < 10+rng.Intn(10); i++ {
 		<-ticker.C
-		fmt.Println(name, "computing", smul(".", i))
+		fmt.Println(name, smul(".", i))
 	}
 	fmt.Println(name, "done")
 	return result * rng.Int()
