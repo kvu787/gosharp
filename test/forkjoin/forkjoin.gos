@@ -9,25 +9,6 @@ import (
 const SequentialCutoff int = 1000
 const Size int = 180000000
 
-func SumAsync(nums []int, start, end int) int {
-	if end-start < SequentialCutoff {
-		return Sum(nums, start, end)
-	} else {
-		mid := (start + end) / 2
-		left := async(Sum(nums, start, mid))
-		right := async(Sum(nums, mid, end))
-		return left + right
-	}
-}
-
-func Sum(nums []int, start, end int) int {
-	sum := 0
-	for _, num := range nums[start:end] {
-		sum += num
-	}
-	return sum
-}
-
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	fmt.Println("Using", runtime.NumCPU(), "cpus")
@@ -46,4 +27,23 @@ func main() {
 	start = time.Now()
 	SumAsync(nums, 0, len(nums))
 	fmt.Println("finished in", time.Now().Sub(start))
+}
+
+func SumAsync(nums []int, start, end int) int {
+	if end-start < SequentialCutoff {
+		return Sum(nums, start, end)
+	} else {
+		mid := (start + end) / 2
+		left := async(Sum(nums, start, mid))
+		right := async(Sum(nums, mid, end))
+		return left + right
+	}
+}
+
+func Sum(nums []int, start, end int) int {
+	sum := 0
+	for _, num := range nums[start:end] {
+		sum += num
+	}
+	return sum
 }
