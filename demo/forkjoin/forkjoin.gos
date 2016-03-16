@@ -15,7 +15,6 @@ import (
 	"time"
 )
 
-const SequentialCutoff int = 1000
 const Size int = 180000000
 
 func main() {
@@ -30,26 +29,22 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "async" {
 		fmt.Print("Running forkjoin sum... ")
 		start := time.Now()
-		SumAsync(nums, 0, len(nums))
+		fmt.Println(SumAsync(nums, 0, len(nums)))
 		fmt.Println("finished in", time.Now().Sub(start))
 	} else {
 		fmt.Print("Running sequential sum... ")
 		start := time.Now()
-		Sum(nums, 0, len(nums))
+		fmt.Println(Sum(nums, 0, len(nums)))
 		fmt.Println("finished in", time.Now().Sub(start))
 	}
 
 }
 
 func SumAsync(nums []int, start, end int) int {
-	if end-start < SequentialCutoff {
-		return Sum(nums, start, end)
-	} else {
-		mid := (start + end) / 2
-		left := async(Sum(nums, start, mid))
-		right := async(Sum(nums, mid, end))
-		return left + right
-	}
+	mid := (start + end) / 2
+	left := async(Sum(nums, start, mid))
+	right := async(Sum(nums, mid, end))
+	return left + right
 }
 
 func Sum(nums []int, start, end int) int {
