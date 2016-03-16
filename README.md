@@ -14,4 +14,5 @@ go get github.com/kvu787/gosharp
 cd demo/fib/
 gosharp
 go build
+./fib
 ```
